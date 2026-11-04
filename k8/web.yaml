@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: devops-web
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: devops-web
+  template:
+    metadata:
+      labels:
+        app: devops-web
+    spec:
+      containers:
+        - name: web
+          image: devops-web:v1
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 80
+          resources:
+            requests:
+              cpu: 50m
+              memory: 32Mi
+            limits:
+              cpu: 250m
+              memory: 128Mi
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 80
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 80
+            initialDelaySeconds: 10
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: devops-web
+spec:
+  selector:
+    app: devops-web
+  ports:
+    - port: 80
+      targetPort: 80
+  type: ClusterIP
