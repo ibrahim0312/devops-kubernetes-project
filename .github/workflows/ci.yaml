@@ -1,0 +1,57 @@
+name: Build and Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -t devops-web:ci .
+
+      - name: Start application
+        run: |
+          docker run -d \
+            --name devops-web-test \
+            -p 8080:80 \
+            devops-web:ci
+
+      - name: Wait for application and check health
+        run: |
+          for attempt in {1..30}; do
+            if curl --fail --silent http://localhost:8080/health \
+              -o /tmp/health; then
+              grep -qx 'healthy' /tmp/health
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Application did not become healthy"
+          exit 1
+
+      - name: Check website content
+        run: |
+          curl --fail --silent http://localhost:8080/ \
+            -o /tmp/index.html
+          grep -q "Tameem's DevOps Lab" /tmp/index.html
+
+      - name: Show container logs
+        if: always()
+        run: docker logs devops-web-test || true
+
+      - name: Remove test container
+        if: always()
+        run: docker rm -f devops-web-test || true
